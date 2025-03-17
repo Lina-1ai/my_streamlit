@@ -1,51 +1,39 @@
-# app.py
-
 import streamlit as st
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import load_model
+import pickle
 
-# Set page title
-st.set_page_config(page_title="Data Explorer!", page_icon="📊")
+# Load trained CNN model
+model = load_model("cnn_model.h5")
 
-# Header
-st.title("Data Explorer")
-st.write("A simple app to explore your data")
+# Load tokenizer
+with open("tokenizer.pkl", "rb") as handle:
+    tokenizer = pickle.load(handle)
 
-# Data generation
-def generate_data():
-    np.random.seed(42)
-    dates = pd.date_range(start="2023-01-01", periods=100, freq="D")
-    values = np.random.randn(100).cumsum()
-    df = pd.DataFrame({"Date": dates, "Value": values})
-    return df
+# Constants
+MAX_SEQUENCE_LENGTH = 100
 
-# Sidebar
-st.sidebar.header("Controls")
-data_size = st.sidebar.slider("Sample Size", 10, 100, 50)
+# Streamlit UI
+st.title("Text Classification using CNN")
+st.write("Enter a text below and let the model classify it.")
 
-# Generate data
-df = generate_data().iloc[:data_size]
+user_input = st.text_area("Enter your text here:")
 
-# Display data
-st.subheader("Raw Data")
-st.dataframe(df)
-
-# Visualization
-st.subheader("Data Visualization")
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.plot(df["Date"], df["Value"])
-ax.set_xlabel("Date")
-ax.set_ylabel("Value")
-ax.grid(True)
-st.pyplot(fig)
-
-# Download options
-st.subheader("Download Data")
-csv = df.to_csv(index=False).encode('utf-8')
-st.download_button(
-    label="Download CSV",
-    data=csv,
-    file_name="data.csv",
-    mime="text/csv"
-)
+if st.button("Classify"):
+    if user_input:
+        # Preprocess input text
+        sequence = tokenizer.texts_to_sequences([user_input])
+        padded_sequence = pad_sequences(sequence, maxlen=MAX_SEQUENCE_LENGTH, padding='post', truncating='post')
+        
+        # Predict
+        prediction = model.predict(padded_sequence)
+        predicted_class = np.argmax(prediction)
+        
+        # Map prediction to labels
+        label = "Fake News" if predicted_class == 0 else "Real News"
+        
+        st.success(f"Predicted Class: {label}")
+    else:
+        st.warning("Please enter some text to classify.")
